@@ -44,7 +44,7 @@ module.exports = async (request, response) => {
   if (request.method === "POST") {
     const signature = request.headers["x-signature-ed25519"];
     const timestamp = request.headers["x-signature-timestamp"];
-    const rawBody = JSON.stringify(req.body);
+    const rawBody = JSON.stringify(request.body);
 
     const isValidRequest = verifyKey(
       rawBody,

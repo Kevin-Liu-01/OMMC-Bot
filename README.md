@@ -4,7 +4,7 @@ OMMC POTD Bot is intended to provide POTD features in the OMMC Discord Server. I
 
 This is a basic reimplementation of Ian Mitchell's Vercel bot.
 
-[Click here to add the bot](https://discord.com/oauth2/authorize?client_id=837785463401087046&scope=applications.commands)
+[Click here to add the bot](https://discord.com/oauth2/authorize?client_id=1147598465308835891&scope=applications.commands)
 
 ## Ian Mitchell's Vercel Discord Bot Tutorial
 
