@@ -4,7 +4,7 @@
   "description": "Discord bot for OMMC POTD Season",
   "main": "index.js",
   "scripts": {
-    "start": "node -r dotenv/config index.js",
+    "start": "node -r dotenv/config api/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
