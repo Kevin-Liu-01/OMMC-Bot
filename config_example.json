@@ -1,4 +1,5 @@
 {
   "prefix": "-",
-  "token": "Enter your bot token here"
+  "token": "Enter your bot token here",
+  "problemchannel": 12345
 }

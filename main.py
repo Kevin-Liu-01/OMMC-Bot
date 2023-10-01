@@ -6,6 +6,7 @@ OMMC PROBLEM OF THE DAY BOT
 
 
 import asyncio
+import datetime
 import json
 import logging
 import pickle
@@ -14,8 +15,7 @@ import sys
 from typing import Any
 
 import discord
-from discord.ext import commands
-
+from discord.ext import commands, tasks
 
 SHARES = [
     0,
@@ -25,6 +25,7 @@ SHARES = [
     0.75,
     1.0,  # 5 attempts (first try)
 ]
+TIMEDELTA = datetime.timedelta(hours=1.0)
 
 
 discord.utils.setup_logging()
@@ -94,6 +95,16 @@ class Main:
 
     #
 
+    @tasks.loop(seconds=20.0)
+    async def check_time(self) -> None:
+        """Checks if the current problem has expired"""
+        if not self.is_current_problem():
+            return
+        now = datetime.datetime.now()
+        if now >= datetime.datetime(*self.state['lastreset']) + TIMEDELTA:
+            logging.info('check_time: Problem expired!')
+            await self.next_problem()
+
     async def next_problem(self) -> None:
         """Gives points for the current problem and moves to the next."""
         if not self.is_current_problem():
@@ -115,9 +126,19 @@ class Main:
         for userdata in self.users.values():
             userdata['answered'] = False
             userdata['attemptsleft'] = 5
-        #self.state['currentproblemid'] += 1
-        # TODO: make this work
-        self.state['lastreset'] = [1970, 1, 1, 0]
+
+        self.state['currentproblemid'] += 1
+        self.state['lastreset'] = datetime.datetime.now().timetuple()[:4]  # Y, M, D, H
+
+        if not self.is_current_problem():
+            logging.warning('No more problems!')
+            return
+        problem_channel = await self.client.fetch_channel(self.config['problemchannel'])
+        new_problem = self.problems[self.state["currentproblemid"]]
+        timestamp = int((datetime.datetime(*self.state['lastreset']) + TIMEDELTA).timestamp())
+        embed = discord.Embed(title='Problem of the Day', description=f'Closes <t:{timestamp}:R>\nAnswer format: `{new_problem["answerformat"]}`')
+        embed.set_image(url=new_problem['imageurl'])
+        await problem_channel.send(embed=embed)
 
     #
 
@@ -163,6 +184,7 @@ class Main:
 
     async def run(self):
         await self.client.add_cog(Commands(self))
+        self.check_time.start()
         logging.info('starting bot')
         await self.client.start(self.config['token'])
 
@@ -177,9 +199,14 @@ class Commands(commands.Cog):
 
     @commands.command()
     async def status(self, ctx: commands.Context) -> None:
-        desc = (f'Current problem: **#{self.main.state["currentproblemid"]}** '
-                f'(active: **{"yes" if self.main.is_current_problem() else "no"}**)\n\n'
-                f'Problem count: **{len(self.main.problems)}**\n'
+        last_reset = datetime.datetime(*self.main.state["lastreset"])
+        problems_left = len(self.main.problems) - self.main.state['currentproblemid'] - 1
+        desc = (f'Current problem: **#{self.main.state["currentproblemid"]}**\n'
+                f'Active: **{"yes" if self.main.is_current_problem() else "no"}**\n\n'
+                f'Problem count: **{len(self.main.problems)}**\n\n'
+                f'Last reset: <t:{int(last_reset.timestamp())}:R>\n'
+                f'Next reset: <t:{int((last_reset + TIMEDELTA).timestamp())}:R>\n\n'
+                f'{"**ATTENTION!** Only " if problems_left <= 2 else ""}{problems_left} problems left'
                 )
         embed = discord.Embed(title='Status', description=desc)
         await ctx.send(embed=embed)
@@ -198,22 +225,22 @@ class Commands(commands.Cog):
         await ctx.send(f'Problem added (#{len(self.main.problems) - 1})')
 
     @commands.command()
-    async def sendproblem(self, ctx: commands.Context, channel: discord.TextChannel = None) -> None:
-        if channel is None:
-            channel = ctx.channel
-        if not self.main.is_current_problem():
-            await channel.send('No problem is currently active.')
-            return
-        problem = self.main.problems[self.main.state['currentproblemid']]
-        embed = discord.Embed(title=f'Problem #{self.main.state["currentproblemid"]}')
-        embed.set_image(url=problem['imageurl'])
-        embed.set_footer(text=f'Answer format: {problem["answerformat"]}')
-        await channel.send(embed=embed)
-
-    @commands.command()
     async def forcenextproblem(self, ctx: commands.Context) -> None:
         await self.main.next_problem()
         await ctx.send(f'Problem is now #{self.main.state["currentproblemid"]}')
+
+    @commands.command()
+    async def resetproblems(self, ctx: commands.Context, *, extra: str = '') -> None:
+        if not extra:
+            await ctx.send('Specify what to delete.')
+            return
+        if 'currentproblemid' in extra:
+            self.main.state['currentproblemid'] = 0
+        if 'problems' in extra:
+            self.main.problems.clear()
+        if 'lastreset' in extra:
+            self.main.state['lastreset'] = [1970, 1, 1, 0]
+        await ctx.send(f'Done. (extra = `{extra}`)')
 
 
 def main():
