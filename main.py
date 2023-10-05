@@ -201,11 +201,15 @@ class Commands(commands.Cog):
     async def status(self, ctx: commands.Context) -> None:
         last_reset = datetime.datetime(*self.main.state["lastreset"])
         problems_left = len(self.main.problems) - self.main.state['currentproblemid'] - 1
+        guild = await self.client.fetch_guild(self.main.config['guildid'])
+        role = None if guild is None else guild.get_role(self.main.config['solvedrole'])
         desc = (f'Current problem: **#{self.main.state["currentproblemid"]}**\n'
                 f'Active: **{"yes" if self.main.is_current_problem() else "no"}**\n\n'
                 f'Problem count: **{len(self.main.problems)}**\n\n'
                 f'Last reset: <t:{int(last_reset.timestamp())}:R>\n'
                 f'Next reset: <t:{int((last_reset + TIMEDELTA).timestamp())}:R>\n\n'
+                f'Guild: {"**FAILED**" if guild is None else guild.name}\n'
+                f'Role to give: <@&{self.main.config["solvedrole"]}> (successfully fetched: **{role is not None}**)\n\n'
                 f'{"**ATTENTION!** Only " if problems_left <= 2 else ""}{problems_left} problems left'
                 )
         embed = discord.Embed(title='Status', description=desc)

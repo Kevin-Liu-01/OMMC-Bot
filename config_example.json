@@ -1,5 +1,7 @@
 {
   "prefix": "-",
   "token": "Enter your bot token here",
-  "problemchannel": 12345
+  "problemchannel": 12345,
+  "solvedrole": 12345,
+  "guildid": 12345
 }
