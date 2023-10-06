@@ -25,7 +25,7 @@ SHARES = [
     0.75,
     1.0,  # 5 attempts (first try)
 ]
-TIMEDELTA = datetime.timedelta(hours=1.0)
+TIMEDELTA = datetime.timedelta(days=1.0)
 
 
 discord.utils.setup_logging()
@@ -68,7 +68,7 @@ class Main:
                 'users': {},
                 'state': {
                     'currentproblemid': 0,
-                    'lastreset': [1970, 1, 1, 0],  # year, month, day, hour (in UTC)
+                    'lastreset': [1970, 1, 1],  # year, month, day, hour (in UTC)
                 },
             }
 
@@ -138,7 +138,7 @@ class Main:
             userdata['attemptsleft'] = 5
 
         self.state['currentproblemid'] += 1
-        self.state['lastreset'] = datetime.datetime.now().timetuple()[:4]  # Y, M, D, H
+        self.state['lastreset'] = datetime.datetime.now().timetuple()[:3]  # Y, M, D
 
         if not self.is_current_problem():
             logging.warning('No more problems!')
