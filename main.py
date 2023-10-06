@@ -239,6 +239,19 @@ class Commands(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command()
+    @commands.cooldown(1, 15.0, commands.BucketType.user)
+    async def leaderboard(self, ctx: commands.Context) -> None:
+        """Shows the leaderboard"""
+        leaderboard = sorted(self.main.users.items(), key=lambda x: x[1]['totalscore'], reverse=True)
+        descs = []
+        for i, (user_id, userdata) in enumerate(leaderboard):
+            if i == 10:  # only go up to i=9 (#10)
+                break
+            descs.append(f'**#{i+1}** <@{user_id}>\n\u2192  {userdata["totalscore"]} points')
+        embed = discord.Embed(title='Leaderboard', description='\n\n'.join(descs))
+        await ctx.send(embed=embed)
+
+    @commands.command()
     async def addproblem(self, ctx: commands.Context, imageurl: str, answer: str, answerformat: str) -> None:
         valid_answer_formats = ('integer', 'fraction', 'string', 'decimal1', 'decimal2', 'decimal3')
         if answerformat not in valid_answer_formats:
