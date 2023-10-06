@@ -3,5 +3,6 @@
   "token": "Enter your bot token here",
   "problemchannel": 12345,
   "solvedrole": 12345,
-  "guildid": 12345
+  "guildid": 12345,
+  "staffroleid": 12345
 }

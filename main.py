@@ -220,6 +220,14 @@ class Commands(commands.Cog):
         self.main = main_class
         self.client = main_class.client
 
+    def validate_staff_role(self, ctx: commands.Context) -> bool:
+        """Checks if the user has the staff role"""
+        if ctx.guild is None:
+            return False
+        return self.main.config['staffroleid'] in [role.id for role in ctx.author.roles]
+
+    #
+
     @commands.command()
     async def status(self, ctx: commands.Context) -> None:
         last_reset = datetime.datetime(*self.main.state["lastreset"])
@@ -253,6 +261,10 @@ class Commands(commands.Cog):
 
     @commands.command()
     async def addproblem(self, ctx: commands.Context, imageurl: str, answer: str, answerformat: str) -> None:
+        if not self.validate_staff_role(ctx):
+            await ctx.send('You do not have permission to use this command.')
+            return
+
         valid_answer_formats = ('integer', 'fraction', 'string', 'decimal1', 'decimal2', 'decimal3')
         if answerformat not in valid_answer_formats:
             await ctx.send(f'Invalid answer format. Must be one of: {", ".join(valid_answer_formats)}')
@@ -266,11 +278,19 @@ class Commands(commands.Cog):
 
     @commands.command()
     async def forcenextproblem(self, ctx: commands.Context) -> None:
+        if not self.validate_staff_role(ctx):
+            await ctx.send('You do not have permission to use this command.')
+            return
+
         await self.main.next_problem()
         await ctx.send(f'Problem is now #{self.main.state["currentproblemid"]}')
 
     @commands.command()
     async def resetproblems(self, ctx: commands.Context, *, extra: str = '') -> None:
+        if not self.validate_staff_role(ctx):
+            await ctx.send('You do not have permission to use this command.')
+            return
+
         if not extra:
             await ctx.send('Specify what to delete.')
             return
@@ -279,7 +299,7 @@ class Commands(commands.Cog):
         if 'problems' in extra:
             self.main.problems.clear()
         if 'lastreset' in extra:
-            self.main.state['lastreset'] = [1970, 1, 1, 0]
+            self.main.state['lastreset'] = [1970, 1, 1]
         await ctx.send(f'Done. (extra = `{extra}`)')
 
 
