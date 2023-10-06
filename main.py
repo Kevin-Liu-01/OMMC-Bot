@@ -110,6 +110,10 @@ class Main:
         if not self.is_current_problem():
             logging.warning('next_problem was called while no problem was active')
             return
+
+        guild = await self.client.fetch_guild(self.config['guildid'])
+        role = None if guild is None else guild.get_role(self.config['solvedrole'])
+
         total_shares = sum(SHARES[user_data['attemptsleft']] for user_data in self.users.values() if user_data['answered'])
         logging.info(f'total shares is {total_shares}')
         score_per_share = 5000.0 / (6.0 + total_shares)
@@ -123,6 +127,12 @@ class Main:
                     await user.send(f'You earned **{score}** points for this problem!\n'
                                     f'Your total score is now **{user_data["totalscore"]}** points.'
                                     )
+                if role is not None:
+                    member = await guild.fetch_member(user_id)
+                    if member is not None:
+                        await member.remove_roles(role)
+                    else:
+                        logging.warning(f'Could not remove role from user ID {user_id} because member is None')
         for userdata in self.users.values():
             userdata['answered'] = False
             userdata['attemptsleft'] = 5
@@ -177,6 +187,19 @@ class Main:
         problem = self.problems[self.state['currentproblemid']]
         if message.content.lower() == problem['answer'].lower():
             user['answered'] = True
+            guild = await self.client.fetch_guild(self.config['guildid'])
+            role = None if guild is None else guild.get_role(self.config['solvedrole'])
+            if role is None:
+                await message.channel.send('Failed to give solved role! Please contact an admin.')
+            else:
+                member = await guild.fetch_member(message.author.id)
+                if member is None:
+                    await message.channel.send('Failed to give solved role! Please contact an admin.')
+                else:
+                    try:
+                        await member.add_roles(role)
+                    except discord.errors.Forbidden:
+                        await message.channel.send('Failed to give solved role! I do not have permission! Please contact an admin.')
             await message.channel.send('Correct!')
         else:
             user['attemptsleft'] -= 1
