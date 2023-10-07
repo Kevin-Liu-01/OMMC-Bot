@@ -10,6 +10,7 @@ import datetime
 import json
 import logging
 import pickle
+import re
 import signal
 import sys
 from typing import Any
@@ -37,6 +38,21 @@ def get_default_user_data() -> dict[str, Any]:
         'attemptsleft': 5,
         'totalscore': 0,
     }
+
+
+def validate_answer(answer: str, answerformat: str) -> tuple[bool, str]:
+    """Validates :answer: to :answerformat:. Returns a tuple[success or not, message if failed]"""
+    if answerformat == 'integer':
+        if re.match(r'^(-?[1-9]\d*|0)$', answer) is None:
+            return False, 'This is an invalid integer. Enter an integer, like `10` or `-2`.'
+        return True, ''
+    if answerformat == 'fraction':
+        if re.match(r'^-?[1-9]\d*/[1-9]\d*$', answer) is None:
+            return False, 'This is an invalid fraction. Enter `m/n` or `-m/n` where `m` and `n` are positive integers, like `5/3` or `-1/2`.'
+        return True, ''
+    if answerformat == 'string':
+        return True, ''
+    return False, 'Invalid answer format supplied by the problem. Contact admin.'
 
 
 class Main:
@@ -105,6 +121,15 @@ class Main:
             logging.info('check_time: Problem expired!')
             await self.next_problem()
 
+    async def post_question(self) -> None:
+        problem_channel = await self.client.fetch_channel(self.config['problemchannel'])
+        new_problem = self.problems[self.state["currentproblemid"]]
+        timestamp = int((datetime.datetime(*self.state['lastreset']) + TIMEDELTA).timestamp())
+        embed = discord.Embed(title='Problem of the Day',
+                              description=f'Closes <t:{timestamp}:R>\nAnswer format: `{new_problem["answerformat"]}`')
+        embed.set_image(url=new_problem['imageurl'])
+        await problem_channel.send(embed=embed)
+
     async def next_problem(self) -> None:
         """Gives points for the current problem and moves to the next."""
         if not self.is_current_problem():
@@ -143,12 +168,7 @@ class Main:
         if not self.is_current_problem():
             logging.warning('No more problems!')
             return
-        problem_channel = await self.client.fetch_channel(self.config['problemchannel'])
-        new_problem = self.problems[self.state["currentproblemid"]]
-        timestamp = int((datetime.datetime(*self.state['lastreset']) + TIMEDELTA).timestamp())
-        embed = discord.Embed(title='Problem of the Day', description=f'Closes <t:{timestamp}:R>\nAnswer format: `{new_problem["answerformat"]}`')
-        embed.set_image(url=new_problem['imageurl'])
-        await problem_channel.send(embed=embed)
+        await self.post_question()
 
     #
 
@@ -183,9 +203,15 @@ class Main:
         if user['attemptsleft'] <= 0:
             await message.channel.send('You have no attempts left.')
             return
-        # TODO: better quality answer checker
+        
         problem = self.problems[self.state['currentproblemid']]
-        if message.content.lower() == problem['answer'].lower():
+        given_answer = message.content.lower()
+        validated, errmsg = validate_answer(given_answer, problem['answerformat'])
+        if not validated:
+            await message.channel.send(f'{errmsg}\n*No credit lost. You still have {user["attemptsleft"]} attempts. Please try again.*')
+            return
+
+        if given_answer == problem['answer']:
             user['answered'] = True
             guild = await self.client.fetch_guild(self.config['guildid'])
             role = None if guild is None else guild.get_role(self.config['solvedrole'])
@@ -265,9 +291,14 @@ class Commands(commands.Cog):
             await ctx.send('You do not have permission to use this command.')
             return
 
-        valid_answer_formats = ('integer', 'fraction', 'string', 'decimal1', 'decimal2', 'decimal3')
+        valid_answer_formats = ('integer', 'fraction', 'string')
         if answerformat not in valid_answer_formats:
             await ctx.send(f'Invalid answer format. Must be one of: {", ".join(valid_answer_formats)}')
+            return
+        answer = answer.lower()
+        validated, errmsg = validate_answer(answer, answerformat)
+        if not validated:
+            await ctx.send(f'The answer you gave does not comply with the format `{answerformat}`: {errmsg}')
             return
         self.main.problems.append({
             'imageurl': imageurl,
@@ -301,6 +332,13 @@ class Commands(commands.Cog):
         if 'lastreset' in extra:
             self.main.state['lastreset'] = [1970, 1, 1]
         await ctx.send(f'Done. (extra = `{extra}`)')
+
+    @commands.command()
+    async def postagain(self, ctx: commands.Context) -> None:
+        if not self.validate_staff_role(ctx):
+            await ctx.send('You do not have permission to use this command.')
+            return
+        await self.main.post_question()
 
 
 def main():
