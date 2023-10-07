@@ -106,7 +106,9 @@ class Main:
         intents.members = True
         intents.message_content = True
         self.client = commands.Bot(command_prefix=self.config['prefix'], intents=intents)
+        self.client.remove_command('help')
         self.client.event(self.on_ready)
+        self.client.event(self.on_command_error)
         self.client.event(self.on_message)
 
     #
@@ -182,6 +184,19 @@ class Main:
         """Handles on_ready event"""
         logging.info(f'bot is ready, logged in as {self.client.user.display_name} ({self.client.user.id})')
 
+    async def on_command_error(self, ctx: commands.Context, exception) -> None:
+        """Handles on_command_error event"""
+        error_type = type(exception)
+        if error_type is commands.MissingRequiredArgument:
+            await ctx.send(f'```\n[Error] Missing Argument: {exception}\n\n----- Usage is below -----\n{ctx.command.usage}\n```')
+        elif error_type is commands.UnexpectedQuoteError:
+            await ctx.send('[Error] unexpected quote mark found. Try escaping it (`\\\"` or `\\\'`)')
+        elif error_type is commands.CommandOnCooldown:
+            waittime = int(exception.retry_after)
+            await ctx.send(f'This command is on cooldown. Try again in **{waittime}s**.')
+        else:
+            logging.error(f'Ignoring exception in command {ctx.command}', exc_info=exception)
+
     async def on_message(self, message: discord.Message) -> None:
         """Handles on_message event"""
         if message.author.bot:
@@ -226,7 +241,7 @@ class Main:
                         await member.add_roles(role)
                     except discord.errors.Forbidden:
                         await message.channel.send('Failed to give solved role! I do not have permission! Please contact an admin.')
-            await message.channel.send('Correct!')
+            await message.channel.send('Correct! You will receive points when the problem closes.')
         else:
             user['attemptsleft'] -= 1
             await message.channel.send(f'Incorrect! You have {user["attemptsleft"]} attempts left.')
@@ -255,7 +270,43 @@ class Commands(commands.Cog):
     #
 
     @commands.command()
+    @commands.cooldown(1, 5.0, commands.BucketType.user)
+    async def help(self, ctx: commands.Context, *, args: str = None) -> None:
+        embed = discord.Embed(
+            title='Help',
+            description='**Commands**\n'
+                        '`help` - show this message\n'
+                        '`rank` - show your rank\n'
+                        '`leaderboard` - show the leaderboard'
+        )
+        await ctx.send(embed=embed)
+
+    @commands.command()
+    @commands.cooldown(1, 5.0, commands.BucketType.user)
+    async def rank(self, ctx: commands.Context) -> None:
+        await ctx.send(f'You have **{self.main.users[ctx.author.id]["totalscore"]}** points.')
+
+    @commands.command()
+    @commands.cooldown(1, 15.0, commands.BucketType.user)
+    async def leaderboard(self, ctx: commands.Context) -> None:
+        """Shows the leaderboard"""
+        leaderboard = sorted(self.main.users.items(), key=lambda x: x[1]['totalscore'], reverse=True)
+        descs = []
+        for i, (user_id, userdata) in enumerate(leaderboard):
+            if i == 10:  # only go up to i=9 (#10)
+                break
+            descs.append(f'**#{i+1}** <@{user_id}>\n\u2192  {userdata["totalscore"]} points')
+        embed = discord.Embed(title='Leaderboard', description='\n\n'.join(descs))
+        await ctx.send(embed=embed)
+
+    #
+
+    @commands.command()
     async def status(self, ctx: commands.Context) -> None:
+        if not self.validate_staff_role(ctx):
+            await ctx.send('You do not have permission to use this command.')
+            return
+
         last_reset = datetime.datetime(*self.main.state["lastreset"])
         problems_left = len(self.main.problems) - self.main.state['currentproblemid'] - 1
         guild = await self.client.fetch_guild(self.main.config['guildid'])
@@ -272,20 +323,7 @@ class Commands(commands.Cog):
         embed = discord.Embed(title='Status', description=desc)
         await ctx.send(embed=embed)
 
-    @commands.command()
-    @commands.cooldown(1, 15.0, commands.BucketType.user)
-    async def leaderboard(self, ctx: commands.Context) -> None:
-        """Shows the leaderboard"""
-        leaderboard = sorted(self.main.users.items(), key=lambda x: x[1]['totalscore'], reverse=True)
-        descs = []
-        for i, (user_id, userdata) in enumerate(leaderboard):
-            if i == 10:  # only go up to i=9 (#10)
-                break
-            descs.append(f'**#{i+1}** <@{user_id}>\n\u2192  {userdata["totalscore"]} points')
-        embed = discord.Embed(title='Leaderboard', description='\n\n'.join(descs))
-        await ctx.send(embed=embed)
-
-    @commands.command()
+    @commands.command(usage='addproblem <imageurl> <answer> <answerformat>')
     async def addproblem(self, ctx: commands.Context, imageurl: str, answer: str, answerformat: str) -> None:
         if not self.validate_staff_role(ctx):
             await ctx.send('You do not have permission to use this command.')
