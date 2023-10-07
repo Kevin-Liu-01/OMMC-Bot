@@ -27,6 +27,9 @@ SHARES = [
     1.0,  # 5 attempts (first try)
 ]
 TIMEDELTA = datetime.timedelta(days=1.0)
+# deltas:
+POINTS_TO_EACH_STAR = [0, 500, 1500, 3000, 5000, 10_000, 17_500, 30_000, 50_000, 70_000, 100_000]
+STARS = '⭑★✬✰✶✵✭✪✸✦❂'
 
 
 discord.utils.setup_logging()
@@ -38,6 +41,22 @@ def get_default_user_data() -> dict[str, Any]:
         'attemptsleft': 5,
         'totalscore': 0,
     }
+
+
+def get_star(points: int) -> str:
+    """Returns the star character for some number of points."""
+    for i, points_needed in enumerate(POINTS_TO_EACH_STAR):
+        if points < points_needed:
+            return STARS[i-1]
+    return STARS[-1]
+
+
+def get_next_index(points: int) -> int:
+    """Returns the next star index some number of points."""
+    for i, points_needed in enumerate(POINTS_TO_EACH_STAR):
+        if points < points_needed:
+            return i
+    return None
 
 
 def validate_answer(answer: str, answerformat: str) -> tuple[bool, str]:
@@ -143,7 +162,7 @@ class Main:
 
         total_shares = sum(SHARES[user_data['attemptsleft']] for user_data in self.users.values() if user_data['answered'])
         logging.info(f'total shares is {total_shares}')
-        score_per_share = 5000.0 / (6.0 + total_shares)
+        score_per_share = 3000.0 / (6.0 + total_shares)
         logging.info(f'score per share is {score_per_share}')
         for user_id, user_data in self.users.items():
             if user_data['answered']:
@@ -284,7 +303,16 @@ class Commands(commands.Cog):
     @commands.command()
     @commands.cooldown(1, 5.0, commands.BucketType.user)
     async def rank(self, ctx: commands.Context) -> None:
-        await ctx.send(f'You have **{self.main.users[ctx.author.id]["totalscore"]}** points.')
+        points = self.main.users[ctx.author.id]['totalscore']
+        i = get_next_index(points)
+        nextstartext = 'None' if i is None else f'{STARS[i]} (in {POINTS_TO_EACH_STAR[i] - points} points)'
+        embed = discord.Embed(
+            title='Rank',
+            description=f'Points: **{points}{get_star(points)}**\n\n'
+                        f'Next Star: {nextstartext}',
+            color=discord.Color.random()
+        )
+        await ctx.send(embed=embed)
 
     @commands.command()
     @commands.cooldown(1, 15.0, commands.BucketType.user)
@@ -295,7 +323,7 @@ class Commands(commands.Cog):
         for i, (user_id, userdata) in enumerate(leaderboard):
             if i == 10:  # only go up to i=9 (#10)
                 break
-            descs.append(f'**#{i+1}** <@{user_id}>\n\u2192  {userdata["totalscore"]} points')
+            descs.append(f'**#{i+1}** <@{user_id}>\n\u2192 **{userdata["totalscore"]}{get_star(userdata["totalscore"])}**')
         embed = discord.Embed(title='Leaderboard', description='\n\n'.join(descs))
         await ctx.send(embed=embed)
 
