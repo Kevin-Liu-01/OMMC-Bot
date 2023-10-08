@@ -67,8 +67,15 @@ def validate_answer(answer: str, answerformat: str) -> tuple[bool, str]:
             return False, 'This is an invalid integer. Enter an integer, like `10` or `-2`.'
         return True, ''
     if answerformat == 'fraction':
-        if re.match(r'^-?[1-9]\d*/[1-9]\d*$', answer) is None:
+        match = re.match(r'^-?([1-9]\d*)/([1-9]\d*)$', answer)
+        if match is None:
             return False, 'This is an invalid fraction. Enter `m/n` or `-m/n` where `m` and `n` are positive integers, like `5/3` or `-1/2`.'
+        numerator = int(match.group(1))
+        denominator = int(match.group(2))
+        if numerator > 1_000_000 or denominator > 1_000_000:
+            return False, 'Fraction too large!'
+        if math.gcd(numerator, denominator) != 1:
+            return False, 'This fraction is not simplified.'
         return True, ''
     if answerformat == 'string':
         return True, ''
