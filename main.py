@@ -9,6 +9,7 @@ import asyncio
 import datetime
 import json
 import logging
+import math
 import pickle
 import re
 import signal
@@ -27,7 +28,7 @@ SHARES = [
     1.0,  # 5 attempts (first try)
 ]
 TIMEDELTA = datetime.timedelta(days=1.0)
-# deltas:
+LEAD_PAGE_SIZE = 10
 POINTS_TO_EACH_STAR = [0, 500, 1500, 3000, 5000, 10_000, 17_500, 30_000, 50_000, 70_000, 100_000]
 STARS = '⭑★✬✰✶✵✭✪✸✦❂'
 
@@ -289,7 +290,7 @@ class Commands(commands.Cog):
     #
 
     @commands.command()
-    @commands.cooldown(1, 5.0, commands.BucketType.user)
+    @commands.cooldown(1, 3.0, commands.BucketType.user)
     async def help(self, ctx: commands.Context, *, args: str = None) -> None:
         embed = discord.Embed(
             title='Help',
@@ -301,8 +302,11 @@ class Commands(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command()
-    @commands.cooldown(1, 5.0, commands.BucketType.user)
+    @commands.cooldown(1, 3.0, commands.BucketType.user)
     async def rank(self, ctx: commands.Context) -> None:
+        if ctx.author.id not in self.main.users:
+            await ctx.send('You have not answered any problems yet.')
+            return
         points = self.main.users[ctx.author.id]['totalscore']
         i = get_next_index(points)
         nextstartext = 'None' if i is None else f'{STARS[i]} (in {POINTS_TO_EACH_STAR[i] - points} points)'
@@ -315,16 +319,18 @@ class Commands(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command()
-    @commands.cooldown(1, 15.0, commands.BucketType.user)
-    async def leaderboard(self, ctx: commands.Context) -> None:
+    @commands.cooldown(1, 3.0, commands.BucketType.user)
+    async def leaderboard(self, ctx: commands.Context, page: int = 1) -> None:
         """Shows the leaderboard"""
+        max_page = math.ceil(len(self.main.users) / LEAD_PAGE_SIZE)
+        page = min(max(page, 1), max_page)
+        i_start = (page - 1) * LEAD_PAGE_SIZE
         leaderboard = sorted(self.main.users.items(), key=lambda x: x[1]['totalscore'], reverse=True)
         descs = []
-        for i, (user_id, userdata) in enumerate(leaderboard):
-            if i == 10:  # only go up to i=9 (#10)
-                break
+        for i, (user_id, userdata) in enumerate(leaderboard[i_start:i_start+LEAD_PAGE_SIZE], start=i_start):
             descs.append(f'**#{i+1}** <@{user_id}>\n\u2192 **{userdata["totalscore"]}{get_star(userdata["totalscore"])}**')
         embed = discord.Embed(title='Leaderboard', description='\n\n'.join(descs))
+        embed.set_footer(text=f'Page {page}/{max_page}')
         await ctx.send(embed=embed)
 
     #
