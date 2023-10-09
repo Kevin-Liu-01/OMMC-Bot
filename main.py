@@ -426,6 +426,15 @@ class Commands(commands.Cog):
             return
         await self.main.post_question()
 
+    @commands.command()
+    async def extenddeadline(self, ctx: commands.Context) -> None:
+        if not self.validate_staff_role(ctx):
+            await ctx.send('You do not have permission to use this command.')
+            return
+        current_deadline = datetime.datetime(*self.main.state['lastreset']) + TIMEDELTA
+        self.main.state['lastreset'] = current_deadline.timetuple()[:3]
+        await ctx.send(f'`lastreset` is now {self.main.state["lastreset"]}, run `postagain` to show changes')
+
 
 def main():
     main_class = Main()
