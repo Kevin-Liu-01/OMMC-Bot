@@ -410,6 +410,10 @@ class Commands(commands.Cog):
             self.main.problems.clear()
         if 'lastreset' in extra:
             self.main.state['lastreset'] = [1970, 1, 1]
+        if '-iknowwhatimdoing-195827485091-allpoints' in extra:
+            print(self.main.users)
+            for userdata in self.main.users.values():
+                userdata['totalscore'] = 0
         await ctx.send(f'Done. (extra = `{extra}`)')
 
     @commands.command()
