@@ -178,9 +178,12 @@ class Main:
                 user_data['totalscore'] += score
                 user = self.client.get_user(user_id)
                 if user is not None:
-                    await user.send(f'You earned **{score}** points for this problem!\n'
-                                    f'Your total score is now **{user_data["totalscore"]}** points.'
-                                    )
+                    try:
+                        await user.send(f'You earned **{score}** points for this problem!\n'
+                                        f'Your total score is now **{user_data["totalscore"]}** points.'
+                                        )
+                    except discord.errors.Forbidden:
+                        logging.warning(f'Could not send DM to user ID {user_id}')
                 if role is not None:
                     member = await guild.fetch_member(user_id)
                     if member is not None:
