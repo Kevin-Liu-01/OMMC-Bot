@@ -361,14 +361,14 @@ class Commands(commands.Cog):
             await ctx.send('You do not have permission to use this command.')
             return
 
-        last_reset = datetime.datetime(*self.main.state["lastreset"])
+        last_reset = self.main.get_last_reset_time()
         problems_left = len(self.main.problems) - self.main.state['currentproblemid'] - 1
         guild = await self.client.fetch_guild(self.main.config['guildid'])
         role = None if guild is None else guild.get_role(self.main.config['solvedrole'])
         desc = (f'Current problem: **#{self.main.state["currentproblemid"]}**\n'
                 f'Active: **{"yes" if self.main.is_current_problem() else "no"}**\n\n'
                 f'Problem count: **{len(self.main.problems)}**\n\n'
-                f'Last reset: <t:{int(last_reset.timestamp())}:R>\n'
+                f'Last reset: <t:{int(last_reset.timestamp())}:R> (calculated time)\n'
                 f'Next reset: <t:{int((last_reset + TIMEDELTA).timestamp())}:R>\n\n'
                 f'Guild: {"**FAILED**" if guild is None else guild.name}\n'
                 f'Role to give: <@&{self.main.config["solvedrole"]}> (successfully fetched: **{role is not None}**)\n\n'
