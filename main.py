@@ -27,9 +27,10 @@ SHARES = [
     0.75,
     1.0,  # 5 attempts (first try)
 ]
+HOUR_OF_RESET = 22
 TIMEDELTA = datetime.timedelta(days=1.0)
 LEAD_PAGE_SIZE = 10
-POINTS_TO_EACH_STAR = [0, 500, 1500, 3000, 5000, 10_000, 17_500, 30_000, 50_000, 70_000, 100_000]
+POINTS_TO_EACH_STAR = [0, 100, 250, 450, 700, 1000, 1300, 1600, 1900, 2200, 2500]
 STARS = '⭑★✬✰✶✵✭✪✸✦❂'
 
 
@@ -146,14 +147,14 @@ class Main:
         if not self.is_current_problem():
             return
         now = datetime.datetime.now()
-        if now >= datetime.datetime(*self.state['lastreset']) + TIMEDELTA:
+        if now >= self.get_last_reset_time() + TIMEDELTA:
             logging.info('check_time: Problem expired!')
             await self.next_problem()
 
     async def post_question(self) -> None:
         problem_channel = await self.client.fetch_channel(self.config['problemchannel'])
         new_problem = self.problems[self.state["currentproblemid"]]
-        timestamp = int((datetime.datetime(*self.state['lastreset']) + TIMEDELTA).timestamp())
+        timestamp = int((self.get_last_reset_time() + TIMEDELTA).timestamp())
         embed = discord.Embed(title='Problem of the Day',
                               description=f'Closes <t:{timestamp}:R>\nAnswer format: `{new_problem["answerformat"]}`')
         embed.set_image(url=new_problem['imageurl'])
@@ -204,6 +205,9 @@ class Main:
 
     #
 
+    def get_last_reset_time(self) -> datetime.datetime:
+        return datetime.datetime(*self.state['lastreset'], HOUR_OF_RESET)
+
     def is_current_problem(self) -> bool:
         """Returns whether there is a current problem"""
         return self.state['currentproblemid'] < len(self.problems)
@@ -224,6 +228,10 @@ class Main:
         elif error_type is commands.CommandOnCooldown:
             waittime = int(exception.retry_after)
             await ctx.send(f'This command is on cooldown. Try again in **{waittime}s**.')
+        elif error_type is commands.BadArgument:
+            await ctx.send('Bad argument! Please try again.')
+        elif error_type is commands.CommandNotFound:
+            pass
         else:
             logging.error(f'Ignoring exception in command {ctx.command}', exc_info=exception)
 
@@ -272,9 +280,11 @@ class Main:
                     except discord.errors.Forbidden:
                         await message.channel.send('Failed to give solved role! I do not have permission! Please contact an admin.')
             await message.channel.send('Correct! You will receive points when the problem closes.')
+            logging.info(f'{message.author.name} gave correct answer')
         else:
             user['attemptsleft'] -= 1
             await message.channel.send(f'Incorrect! You have {user["attemptsleft"]} attempts left.')
+            logging.info(f'{message.author.name} gave WRONG answer ({given_answer=})')
 
     async def run(self):
         await self.client.add_cog(Commands(self))
