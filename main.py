@@ -332,7 +332,7 @@ class Commands(commands.Cog):
         nextstartext = 'None' if i is None else f'{STARS[i]} (in {POINTS_TO_EACH_STAR[i] - points} points)'
         embed = discord.Embed(
             title='Rank',
-            description=f'Points: **{points}{get_star(points)}**\n\n'
+            description=f'Points: **{points:,}{get_star(points)}**\n\n'
                         f'Next Star: {nextstartext}',
             color=discord.Color.random()
         )
@@ -348,7 +348,7 @@ class Commands(commands.Cog):
         leaderboard = sorted(self.main.users.items(), key=lambda x: x[1]['totalscore'], reverse=True)
         descs = []
         for i, (user_id, userdata) in enumerate(leaderboard[i_start:i_start+LEAD_PAGE_SIZE], start=i_start):
-            descs.append(f'**#{i+1}** <@{user_id}>\n\u2192 **{userdata["totalscore"]}{get_star(userdata["totalscore"])}**')
+            descs.append(f'**#{i+1}** <@{user_id}>\n\u2192 **{userdata["totalscore"]:,}{get_star(userdata["totalscore"])}**')
         embed = discord.Embed(title='Leaderboard', description='\n\n'.join(descs))
         embed.set_footer(text=f'Page {page}/{max_page}')
         await ctx.send(embed=embed)
@@ -444,6 +444,32 @@ class Commands(commands.Cog):
         current_deadline = datetime.datetime(*self.main.state['lastreset']) + TIMEDELTA
         self.main.state['lastreset'] = current_deadline.timetuple()[:3]
         await ctx.send(f'`lastreset` is now {self.main.state["lastreset"]}, run `postagain` to show changes')
+
+    @commands.command()
+    async def awaitexecutecode(self, ctx: commands.Context) -> None:
+        if not self.validate_staff_role(ctx):
+            await ctx.send('You do not have permission to use this command.')
+            return
+        await ctx.send('Waiting for input (async is ok)! The bot will temporarily block.')
+        code = input()
+        environment = {
+            'self': self,
+            'main': self.main,
+            'client': self.main.client,
+            'ctx': ctx
+        }
+        to_compile = f'async def _func_():\n  {code}'
+        try:
+            exec(to_compile, environment)
+        except Exception:
+            await ctx.send('Compilation failed.')
+        else:
+            func = environment['_func_']
+            try:
+                await func()
+            except Exception as e:
+                await ctx.send(f'Execution failed. {e}')
+            await ctx.send('Finished.')
 
 
 def main():
