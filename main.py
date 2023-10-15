@@ -14,6 +14,7 @@ import pickle
 import re
 import signal
 import sys
+import time
 from typing import Any
 
 import discord
@@ -352,11 +353,15 @@ class Commands(commands.Cog):
         shares = [SHARES[user_data['attemptsleft']] for user_data in self.main.users.values() if user_data['answered']]
         total_shares = sum(shares)
         total_value = calculate_problem_value(total_shares)
-        estimated_values = '/'.join(f'**{total_value*share_value:.0f}**' for share_value in SHARES[-1:0:-1])
+        current_values = '/'.join(f'**{total_value*share_value:.0f}**' for share_value in SHARES[-1:0:-1])
+        time_elapsed_fraction = 1 - (ending_time - int(time.time()))/86400
+        estimated_value = calculate_problem_value(total_shares / (time_elapsed_fraction**0.6))
+        estimated_values = '/'.join(f'**{estimated_value*share_value:.0f}**' for share_value in SHARES[-1:0:-1])
         embed = discord.Embed(
             title='Problem Status',
             description=f'Ends <t:{ending_time}:R>\n\n'
-                        f'Solves: **{total_shares:.2f}** ({len(shares)} total people)\n'
+                        f'Solves: **{total_shares:.2f}** ({len(shares)} total people)\n\n'
+                        f'Current value: {current_values} {STARS[0]}\n'
                         f'Estimated value: {estimated_values} {STARS[0]}',
             color=discord.Color.random()
         )
