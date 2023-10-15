@@ -83,6 +83,11 @@ def validate_answer(answer: str, answerformat: str) -> tuple[bool, str]:
     return False, 'Invalid answer format supplied by the problem. Contact admin.'
 
 
+def calculate_problem_value(share_count: float) -> float:
+    """Calculates the value of a problem with :share_count: shares."""
+    return 3000.0 / (6.0 + share_count)
+
+
 class Main:
     client: commands.Bot
 
@@ -171,7 +176,7 @@ class Main:
 
         total_shares = sum(SHARES[user_data['attemptsleft']] for user_data in self.users.values() if user_data['answered'])
         logging.info(f'total shares is {total_shares}')
-        score_per_share = 3000.0 / (6.0 + total_shares)
+        score_per_share = calculate_problem_value(total_shares)
         logging.info(f'score per share is {score_per_share}')
         for user_id, user_data in self.users.items():
             if user_data['answered']:
@@ -317,12 +322,13 @@ class Commands(commands.Cog):
             description='**Commands**\n'
                         '`help` - show this message\n'
                         '`rank` - show your rank\n'
+                        '`problemstatus` - show the status of the current problem'
                         '`leaderboard` - show the leaderboard'
         )
         await ctx.send(embed=embed)
 
     @commands.command()
-    @commands.cooldown(1, 3.0, commands.BucketType.user)
+    @commands.cooldown(1, 2.0, commands.BucketType.user)
     async def rank(self, ctx: commands.Context) -> None:
         if ctx.author.id not in self.main.users:
             await ctx.send('You have not answered any problems yet.')
@@ -339,7 +345,25 @@ class Commands(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command()
-    @commands.cooldown(1, 3.0, commands.BucketType.user)
+    @commands.cooldown(1, 4.0, commands.BucketType.user)
+    async def problemstatus(self, ctx: commands.Context) -> None:
+        """Shows the status of the current problem"""
+        ending_time = int((self.main.get_last_reset_time() + TIMEDELTA).timestamp())
+        shares = [SHARES[user_data['attemptsleft']] for user_data in self.main.users.values() if user_data['answered']]
+        total_shares = sum(shares)
+        total_value = calculate_problem_value(total_shares)
+        estimated_values = '/'.join(f'**{total_value*share_value:.0f}**' for share_value in SHARES[-1:0:-1])
+        embed = discord.Embed(
+            title='Problem Status',
+            description=f'Ends <t:{ending_time}:R>\n\n'
+                        f'Solves: **{total_shares:.2f}** ({len(shares)} total people)\n'
+                        f'Estimated value: {estimated_values} {STARS[0]}',
+            color=discord.Color.random()
+        )
+        await ctx.send(embed=embed)
+
+    @commands.command()
+    @commands.cooldown(1, 4.0, commands.BucketType.user)
     async def leaderboard(self, ctx: commands.Context, page: int = 1) -> None:
         """Shows the leaderboard"""
         max_page = math.ceil(len(self.main.users) / LEAD_PAGE_SIZE)
@@ -349,7 +373,7 @@ class Commands(commands.Cog):
         descs = []
         for i, (user_id, userdata) in enumerate(leaderboard[i_start:i_start+LEAD_PAGE_SIZE], start=i_start):
             descs.append(f'**#{i+1}** <@{user_id}>\n\u2192 **{userdata["totalscore"]:,}{get_star(userdata["totalscore"])}**')
-        embed = discord.Embed(title='Leaderboard', description='\n\n'.join(descs))
+        embed = discord.Embed(title='Leaderboard', description='\n\n'.join(descs), color=discord.Color.random())
         embed.set_footer(text=f'Page {page}/{max_page}')
         await ctx.send(embed=embed)
 
