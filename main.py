@@ -369,15 +369,22 @@ class Commands(commands.Cog):
 
     @commands.command()
     @commands.cooldown(1, 4.0, commands.BucketType.user)
-    async def leaderboard(self, ctx: commands.Context, page: int = 1) -> None:
+    async def leaderboard(self, ctx: commands.Context, page: int = None) -> None:
         """Shows the leaderboard"""
-        max_page = math.ceil(len(self.main.users) / LEAD_PAGE_SIZE)
-        page = min(max(page, 1), max_page)
-        i_start = (page - 1) * LEAD_PAGE_SIZE
         leaderboard = sorted(self.main.users.items(), key=lambda x: x[1]['totalscore'], reverse=True)
+        max_page = math.ceil(len(self.main.users) / LEAD_PAGE_SIZE)
+        if page is None:
+            user_i = next(i for i, (user_id, total_score) in enumerate(leaderboard) if user_id == ctx.author.id)
+            page = user_i//LEAD_PAGE_SIZE + 1
+        else:
+            page = min(max(page, 1), max_page)
+        i_start = (page - 1) * LEAD_PAGE_SIZE
         descs = []
         for i, (user_id, userdata) in enumerate(leaderboard[i_start:i_start+LEAD_PAGE_SIZE], start=i_start):
-            descs.append(f'**#{i+1}** <@{user_id}>\n\u2192 **{userdata["totalscore"]:,}{get_star(userdata["totalscore"])}**')
+            s = f'**#{i+1}** <@{user_id}>\n\u2192 **{userdata["totalscore"]:,}{get_star(userdata["totalscore"])}**'
+            if user_id == ctx.author.id:
+                s = f'\u25c6 {s}'
+            descs.append(s)
         embed = discord.Embed(title='Leaderboard', description='\n\n'.join(descs), color=discord.Color.random())
         embed.set_footer(text=f'Page {page}/{max_page}')
         await ctx.send(embed=embed)
