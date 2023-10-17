@@ -31,8 +31,8 @@ SHARES = [
 HOUR_OF_RESET = 22
 TIMEDELTA = datetime.timedelta(days=1.0)
 LEAD_PAGE_SIZE = 10
-POINTS_TO_EACH_STAR = [0, 100, 250, 450, 700, 1000, 1300, 1600, 1900, 2200, 2500]
-STARS = '⭑★✬✰✶✵✭✪✸✦❂'
+POINTS_TO_EACH_STAR = [0, 100, 250, 450, 700, 1000, 1300, 1600, 1900, 2200, 2500, 25000, 250000]
+STARS = ['⭑', '★', '✬', '✰', '✶', '✵', '✭', '✪', '✸', '✦', '❂', '❂❂', '❂❂❂']
 
 
 discord.utils.setup_logging()
@@ -339,7 +339,7 @@ class Commands(commands.Cog):
         nextstartext = 'None' if i is None else f'{STARS[i]} (in {POINTS_TO_EACH_STAR[i] - points} points)'
         embed = discord.Embed(
             title='Rank',
-            description=f'Points: **{points:,}{get_star(points)}**\n\n'
+            description=f'Points: **{points:,}**{get_star(points)}\n\n'
                         f'Next Star: {nextstartext}',
             color=discord.Color.random()
         )
@@ -381,7 +381,7 @@ class Commands(commands.Cog):
         i_start = (page - 1) * LEAD_PAGE_SIZE
         descs = []
         for i, (user_id, userdata) in enumerate(leaderboard[i_start:i_start+LEAD_PAGE_SIZE], start=i_start):
-            s = f'**#{i+1}** <@{user_id}>\n\u2192 **{userdata["totalscore"]:,}{get_star(userdata["totalscore"])}**'
+            s = f'**#{i+1}** <@{user_id}>\n\u2192 **{userdata["totalscore"]:,}**{get_star(userdata["totalscore"])}'
             if user_id == ctx.author.id:
                 s = f'\u25c6 {s}'
             descs.append(s)
